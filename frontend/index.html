@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRM FLIGHT</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary:                    "#005bad",
+            "primary-container":        "#0074d9",
+            "on-primary":               "#ffffff",
+            "on-primary-container":     "#fdfbff",
+            secondary:                  "#476083",
+            "secondary-container":      "#bdd6ff",
+            "on-secondary-container":   "#445d80",
+            surface:                    "#f7f9fb",
+            "surface-container":        "#eceef0",
+            "surface-container-low":    "#f2f4f6",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-high":   "#e6e8ea",
+            "on-surface":               "#191c1e",
+            "on-surface-variant":       "#414753",
+            "outline-variant":          "#c1c6d5",
+            error:                      "#ba1a1a",
+            "error-container":          "#ffdad6",
+            "on-error-container":       "#93000a",
+            tertiary:                   "#974300",
+            "tertiary-fixed":           "#ffdbc9",
+          },
+          fontFamily: {
+            headline: ["Manrope", "sans-serif"],
+            body:     ["Inter", "sans-serif"],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* ── Material Icons ─────────────────────────────────────── */
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      vertical-align: middle;
+    }
+
+    /* ── Scrollbar ──────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f7f9fb; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+    /* ── Lead row states ────────────────────────────────────── */
+    .lead-row          { border-left: 4px solid transparent; transition: background 0.15s; }
+    .lead-row--overdue { border-left-color: #ba1a1a; }
+    .lead-row--stale   { border-left-color: #974300; }
+    .lead-row--new     { border-left-color: #005bad; }
+    .lead-row:hover    { background: #f2f4f6; }
+
+    /* ── Status badges ──────────────────────────────────────── */
+    .status-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .status--new                  { background: #bdd6ff; color: #001c3a; }
+    .status--contacted            { background: #d1fae5; color: #065f46; }
+    .status--waiting-for-customer { background: #ffdbc9; color: #763300; }
+    .status--closed-won           { background: #a7f3d0; color: #064e3b; }
+    .status--closed-lost          { background: #e5e7eb; color: #374151; }
+
+    /* Fallback for any unexpected status value */
+    .status-badge:not([class*="status--"]) { background: #eceef0; color: #414753; }
+
+    /* ── Drawer ─────────────────────────────────────────────── */
+    #lead-drawer {
+      position: fixed;
+      top: 0; right: 0;
+      height: 100vh;
+      width: 480px;
+      background: #fff;
+      box-shadow: -4px 0 32px rgba(0,0,0,0.13);
+      z-index: 70;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-left: 1px solid #e2e8f0;
+    }
+    #lead-drawer.drawer--open { transform: translateX(0); }
+
+    /* ── Modal ──────────────────────────────────────────────── */
+    #add-lead-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+    }
+    #add-lead-modal.modal--hidden { display: none; }
+
+    /* ── Timeline ───────────────────────────────────────────── */
+    .timeline-event {
+      display: flex;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #f2f4f6;
+      margin-bottom: 8px;
+      border-left: 3px solid transparent;
+    }
+    .timeline-event--note   { border-left-color: #005bad; }
+    .timeline-event--status { border-left-color: #476083; }
+    .timeline-event--bot    { border-left-color: #974300; }
+
+    .timeline-event__icon    { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .timeline-event__body    { flex: 1; min-width: 0; }
+    .timeline-event__content { font-size: 13px; color: #191c1e; margin: 0 0 3px; line-height: 1.4; }
+    .timeline-event__time    { font-size: 11px; color: #717784; }
+    .timeline-empty          { color: #717784; font-size: 13px; text-align: center; padding: 24px 0; }
+
+    /* ── Shared field style ─────────────────────────────────── */
+    .field {
+      width: 100%;
+      padding: 8px 12px;
+      background: #f2f4f6;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: #191c1e;
+      outline: none;
+      transition: box-shadow 0.15s;
+    }
+    .field:focus { box-shadow: 0 0 0 2px #005bad40; }
+
+    .field-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      color: #717784;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    /* Tailwind's forms plugin normalises selects; keep our bg */
+    select.field { appearance: auto; }
+
+    /* ── Buttons ────────────────────────────────────────────── */
+    .btn          { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.1s; border: none; }
+    .btn:active   { transform: scale(0.97); }
+    .btn--primary { background: #005bad; color: #fff; box-shadow: 0 2px 8px #005bad40; }
+    .btn--primary:hover { opacity: 0.9; }
+    .btn--ghost   { background: #f2f4f6; color: #191c1e; }
+    .btn--ghost:hover { background: #e6e8ea; }
+    .btn--sm      { padding: 4px 10px; font-size: 11px; border-radius: 6px; background: #fff; border: 1px solid #c1c6d5; color: #005bad; }
+    .btn--sm:hover { background: #f0f6ff; border-color: #005bad; }
+  </style>
+</head>
+
+<body class="bg-surface font-body text-on-surface antialiased">
+
+<!-- ═══════════════════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════════════════ -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-100 flex flex-col p-4 z-50">
+
+  <!-- Brand -->
+  <div class="flex items-center gap-3 px-2 py-4 mb-2">
+    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white shadow-md">
+      <span class="material-symbols-outlined text-xl">flight_takeoff</span>
+    </div>
+    <div>
+      <div class="text-sm font-bold text-slate-900 font-headline leading-none">Flight Deck</div>
+      <div class="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">Terminal A-1</div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 flex flex-col gap-0.5">
+    <a class="flex items-center gap-3 px-3 py-2.5 bg-white text-primary rounded-lg shadow-sm font-headline text-sm font-semibold" href="#">
+      <span class="material-symbols-outlined text-lg">dashboard</span>
+      Overview
+    </a>
+    <a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-200 rounded-lg font-headline text-sm font-semibold transition-colors" href="#">
+      <span class="material-symbols-outlined text-lg">flight_takeoff</span>
+      All Leads
+    </a>
+    <a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-200 rounded-lg font-headline text-sm font-semibold transition-colors" href="#">
+      <span class="material-symbols-outlined text-lg">event_available</span>
+      Bookings
+    </a>
+    <a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-200 rounded-lg font-headline text-sm font-semibold transition-colors" href="#">
+      <span class="material-symbols-outlined text-lg">group</span>
+      Clients
+    </a>
+    <a class="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-200 rounded-lg font-headline text-sm font-semibold transition-colors" href="#">
+      <span class="material-symbols-outlined text-lg">analytics</span>
+      Analytics
+    </a>
+  </nav>
+
+  <!-- Footer -->
+  <div class="pt-4 border-t border-slate-200">
+    <a class="flex items-center gap-3 px-3 py-2 text-slate-500 hover:bg-slate-200 rounded-lg font-headline text-sm font-semibold transition-colors" href="#">
+      <span class="material-symbols-outlined text-lg">help</span>
+      Support
+    </a>
+  </div>
+</aside>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════════════════ -->
+<main class="ml-64 min-h-screen flex flex-col">
+
+  <!-- ── Top Bar ──────────────────────────────────────────── -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm">
+    <div class="flex justify-between items-center px-6 py-3 max-w-[1600px] mx-auto w-full">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-2 font-headline font-black text-xl text-on-surface">
+        <span class="material-symbols-outlined text-primary text-2xl">flight</span>
+        CRM FLIGHT
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2">
+        <button class="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+          <span class="material-symbols-outlined">notifications</span>
+        </button>
+        <button class="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+        <button id="add-lead-btn" class="btn btn--primary ml-2">
+          <span class="material-symbols-outlined text-base">add</span>
+          Add Lead
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Dashboard Content ─────────────────────────────────── -->
+  <section class="p-8 max-w-[1600px] mx-auto w-full space-y-8">
+
+    <!-- Page title -->
+    <div>
+      <h1 class="text-3xl font-extrabold font-headline text-on-surface tracking-tight">Flight Operations</h1>
+      <p class="text-on-surface-variant text-sm mt-1">Live overview of passenger leads and status metrics.</p>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="grid grid-cols-3 gap-6">
+
+      <!-- New -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-primary relative overflow-hidden group hover:shadow-md transition-shadow cursor-default">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-on-surface-variant font-bold text-xs uppercase tracking-wider">New Leads</p>
+            <h2 id="count-new" class="text-4xl font-extrabold font-headline mt-2 text-on-surface">—</h2>
+          </div>
+          <span class="bg-primary/10 text-primary p-2 rounded-full">
+            <span class="material-symbols-outlined">person_add</span>
+          </span>
+        </div>
+        <div class="mt-4 flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+          <span class="material-symbols-outlined text-sm text-primary">rocket_launch</span>
+          Awaiting first contact
+        </div>
+        <span class="material-symbols-outlined absolute -bottom-3 -right-3 text-8xl text-primary/5 group-hover:scale-110 transition-transform">rocket_launch</span>
+      </div>
+
+      <!-- Overdue -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-error relative overflow-hidden group hover:shadow-md transition-shadow cursor-default">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-on-surface-variant font-bold text-xs uppercase tracking-wider">Overdue Response</p>
+            <h2 id="count-overdue" class="text-4xl font-extrabold font-headline mt-2 text-on-surface">—</h2>
+          </div>
+          <span class="bg-error/10 text-error p-2 rounded-full">
+            <span class="material-symbols-outlined">warning</span>
+          </span>
+        </div>
+        <div class="mt-4 flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+          <span class="material-symbols-outlined text-sm text-error">schedule</span>
+          Requires immediate attention
+        </div>
+        <span class="material-symbols-outlined absolute -bottom-3 -right-3 text-8xl text-error/5 group-hover:scale-110 transition-transform">warning</span>
+      </div>
+
+      <!-- Stale -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-tertiary relative overflow-hidden group hover:shadow-md transition-shadow cursor-default">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-on-surface-variant font-bold text-xs uppercase tracking-wider">Stale Enquiries</p>
+            <h2 id="count-stale" class="text-4xl font-extrabold font-headline mt-2 text-on-surface">—</h2>
+          </div>
+          <span class="bg-tertiary/10 text-tertiary p-2 rounded-full">
+            <span class="material-symbols-outlined">hourglass_empty</span>
+          </span>
+        </div>
+        <div class="mt-4 flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+          <span class="material-symbols-outlined text-sm text-tertiary">timer</span>
+          No activity in 24 hours
+        </div>
+        <span class="material-symbols-outlined absolute -bottom-3 -right-3 text-8xl text-tertiary/5 group-hover:scale-110 transition-transform">hourglass_empty</span>
+      </div>
+    </div>
+
+    <!-- Leads Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-outline-variant/30 overflow-hidden">
+
+      <!-- Table header bar -->
+      <div class="px-6 py-4 border-b border-surface-container-low flex justify-between items-center">
+        <h3 class="font-headline font-bold text-base text-on-surface">Active Leads Manifest</h3>
+        <p class="text-xs text-on-surface-variant">Auto-refreshes every 60 s</p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-surface-container-low text-on-surface-variant text-[10px] font-black uppercase tracking-widest">
+              <th class="px-6 py-3">Name</th>
+              <th class="px-6 py-3">Destination</th>
+              <th class="px-6 py-3">Departure</th>
+              <th class="px-6 py-3">Status</th>
+              <th class="px-6 py-3">Last Contact</th>
+              <th class="px-6 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="leads-tbody" class="divide-y divide-surface-container-low">
+            <!-- Populated by dashboard.js -->
+            <tr>
+              <td colspan="6" class="px-6 py-16 text-center text-on-surface-variant text-sm">
+                <span class="material-symbols-outlined text-4xl text-slate-300 block mb-2">flight</span>
+                Loading manifest…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     DRAWER BACKDROP
+═══════════════════════════════════════════════════════════ -->
+<div id="drawer-backdrop"
+     style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.3); backdrop-filter:blur(2px); z-index:60;"
+     onclick="closeDrawer()">
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     LEAD DRAWER
+═══════════════════════════════════════════════════════════ -->
+<div id="lead-drawer">
+
+  <!-- Header -->
+  <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary">person</span>
+      <h2 class="text-base font-extrabold font-headline text-on-surface">Lead Details</h2>
+    </div>
+    <button id="drawer-close" class="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <!-- Scrollable body -->
+  <div class="flex-1 overflow-y-auto">
+
+    <!-- Quick Actions -->
+    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+      <p class="field-label mb-3">Quick Actions</p>
+      <div class="flex gap-2">
+        <button data-quick-action="contacted"
+                class="flex-1 py-2.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-primary hover:text-primary hover:bg-blue-50 transition-all shadow-sm text-center">
+          <span class="material-symbols-outlined text-sm block mb-0.5">phone_in_talk</span>
+          Mark Contacted
+        </button>
+        <button data-quick-action="close-won"
+                class="flex-1 py-2.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all shadow-sm text-center">
+          <span class="material-symbols-outlined text-sm block mb-0.5">check_circle</span>
+          Close Won
+        </button>
+        <button data-quick-action="close-lost"
+                class="flex-1 py-2.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-slate-400 hover:text-slate-500 hover:bg-slate-100 transition-all shadow-sm text-center">
+          <span class="material-symbols-outlined text-sm block mb-0.5">cancel</span>
+          Close Lost
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Form -->
+    <form id="lead-edit-form" class="px-6 py-5 border-b border-slate-100 space-y-4">
+      <p class="field-label">Lead Information</p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="field-label" for="drawer-name">Name</label>
+          <input id="drawer-name" name="name" type="text" class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="drawer-phone">Phone</label>
+          <input id="drawer-phone" name="phone" type="text" class="field" />
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label" for="drawer-email">Email</label>
+        <input id="drawer-email" name="email" type="email" class="field" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="field-label" for="drawer-destination">Destination</label>
+          <input id="drawer-destination" name="destination" type="text" class="field" />
+        </div>
+        <div>
+          <label class="field-label" for="drawer-departure-date">Departure Date</label>
+          <input id="drawer-departure-date" name="departure_date" type="date" class="field" />
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label" for="drawer-status">Status</label>
+        <select id="drawer-status" name="status" class="field">
+          <option value="New">New</option>
+          <option value="Contacted">Contacted</option>
+          <option value="Waiting for Customer">Waiting for Customer</option>
+          <option value="Closed-Won">Closed-Won</option>
+          <option value="Closed-Lost">Closed-Lost</option>
+        </select>
+      </div>
+
+      <!-- Baggage -->
+      <div class="space-y-2">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input id="drawer-baggage-required" name="baggage_required" type="checkbox"
+                 class="w-4 h-4 rounded border-slate-300 text-primary cursor-pointer" />
+          <span class="text-sm font-medium text-on-surface">Baggage Required</span>
+        </label>
+        <input id="drawer-baggage-details" name="baggage_details" type="text"
+               placeholder="Baggage details…" class="field" />
+      </div>
+
+      <!-- Date Change -->
+      <div class="space-y-2">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input id="drawer-date-change-requested" name="date_change_requested" type="checkbox"
+                 class="w-4 h-4 rounded border-slate-300 text-primary cursor-pointer" />
+          <span class="text-sm font-medium text-on-surface">Date Change Requested</span>
+        </label>
+        <input id="drawer-date-change-details" name="date_change_details" type="text"
+               placeholder="Date change details…" class="field" />
+      </div>
+
+      <button type="submit" class="btn btn--primary w-full justify-center">
+        <span class="material-symbols-outlined text-base">save</span>
+        Save Changes
+      </button>
+    </form>
+
+    <!-- Bot Suggestions -->
+    <div class="px-6 py-5 border-b border-slate-100">
+      <p class="field-label mb-3">Bot Suggestions</p>
+      <div class="flex flex-col gap-2">
+        <button data-bot="passport"
+                class="text-left px-3 py-2.5 text-xs font-semibold text-on-surface-variant bg-surface-container-low rounded-lg hover:bg-surface-container transition-colors flex items-center gap-2">
+          <span class="material-symbols-outlined text-base text-primary">badge</span>
+          Request passport details
+        </button>
+        <button data-bot="baggage"
+                class="text-left px-3 py-2.5 text-xs font-semibold text-on-surface-variant bg-surface-container-low rounded-lg hover:bg-surface-container transition-colors flex items-center gap-2">
+          <span class="material-symbols-outlined text-base text-primary">luggage</span>
+          Ask about baggage
+        </button>
+        <button data-bot="date-change"
+                class="text-left px-3 py-2.5 text-xs font-semibold text-on-surface-variant bg-surface-container-low rounded-lg hover:bg-surface-container transition-colors flex items-center gap-2">
+          <span class="material-symbols-outlined text-base text-primary">date_range</span>
+          Explore date flexibility
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Note -->
+    <div class="px-6 py-5 border-b border-slate-100">
+      <p class="field-label mb-3">Add Note</p>
+      <textarea id="note-input" rows="3"
+                placeholder="Type a note or select a bot suggestion above…"
+                class="field resize-none"></textarea>
+      <button id="add-note-btn" class="btn btn--ghost w-full justify-center mt-2">
+        <span class="material-symbols-outlined text-base">add_comment</span>
+        Add Note
+      </button>
+    </div>
+
+    <!-- Activity Timeline -->
+    <div class="px-6 py-5">
+      <p class="field-label mb-4">Activity Timeline</p>
+      <div id="timeline-feed">
+        <p class="timeline-empty">No activity yet.</p>
+      </div>
+    </div>
+
+  </div><!-- /scrollable -->
+</div><!-- /lead-drawer -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     ADD LEAD MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="add-lead-modal" class="modal--hidden">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+
+    <!-- Modal header -->
+    <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">flight_takeoff</span>
+        <h2 class="text-base font-extrabold font-headline text-on-surface">Add New Lead</h2>
+      </div>
+      <button id="modal-cancel" class="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Modal form (scrollable) -->
+    <div class="overflow-y-auto px-6 py-5">
+      <form id="add-lead-form" class="space-y-4">
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="field-label" for="modal-name">Name <span class="text-error">*</span></label>
+            <input id="modal-name" name="name" type="text" required class="field" />
+          </div>
+          <div>
+            <label class="field-label" for="modal-phone">Phone</label>
+            <input id="modal-phone" name="phone" type="text" class="field" />
+          </div>
+        </div>
+
+        <div>
+          <label class="field-label" for="modal-email">Email</label>
+          <input id="modal-email" name="email" type="email" class="field" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="field-label" for="modal-destination">Destination</label>
+            <input id="modal-destination" name="destination" type="text" class="field" />
+          </div>
+          <div>
+            <label class="field-label" for="modal-departure-date">Departure Date</label>
+            <input id="modal-departure-date" name="departure_date" type="date" class="field" />
+          </div>
+        </div>
+
+        <div>
+          <label class="field-label" for="modal-status">Status</label>
+          <select id="modal-status" name="status" class="field">
+            <option value="New">New</option>
+            <option value="Contacted">Contacted</option>
+            <option value="Waiting for Customer">Waiting for Customer</option>
+            <option value="Closed-Won">Closed-Won</option>
+            <option value="Closed-Lost">Closed-Lost</option>
+          </select>
+        </div>
+
+        <!-- Baggage -->
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input name="baggage_required" type="checkbox"
+                   class="w-4 h-4 rounded border-slate-300 text-primary cursor-pointer" />
+            <span class="text-sm font-medium text-on-surface">Baggage Required</span>
+          </label>
+          <input name="baggage_details" type="text" placeholder="Baggage details…" class="field" />
+        </div>
+
+        <!-- Date Change -->
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input name="date_change_requested" type="checkbox"
+                   class="w-4 h-4 rounded border-slate-300 text-primary cursor-pointer" />
+            <span class="text-sm font-medium text-on-surface">Date Change Requested</span>
+          </label>
+          <input name="date_change_details" type="text" placeholder="Date change details…" class="field" />
+        </div>
+
+        <!-- Submit row -->
+        <div class="flex gap-3 pt-1">
+          <button type="button" id="modal-cancel-2"
+                  class="btn btn--ghost flex-1 justify-center">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn--primary flex-1 justify-center shadow-md">
+            <span class="material-symbols-outlined text-base">add</span>
+            Create Lead
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS  (dependency order)
+═══════════════════════════════════════════════════════════ -->
+<script src="js/api.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/drawer.js"></script>
+<script src="js/timeline.js"></script>
+<script src="js/bot.js"></script>
+
+<script>
+  // ── Backdrop wiring ──────────────────────────────────────
+  // Wrap openDrawer / closeDrawer (both declared in drawer.js above)
+  // to show/hide the backdrop overlay.
+  (function () {
+    const backdrop = document.getElementById('drawer-backdrop');
+
+    const _origOpen  = window.openDrawer;
+    const _origClose = window.closeDrawer;
+
+    window.openDrawer = function (id) {
+      _origOpen(id);
+      backdrop.style.display = 'block';
+    };
+
+    window.closeDrawer = function () {
+      _origClose();
+      backdrop.style.display = 'none';
+    };
+  })();
+
+  // ── Second modal cancel button ────────────────────────────
+  document.getElementById('modal-cancel-2').addEventListener('click', function () {
+    document.getElementById('modal-cancel').click();
+  });
+</script>
+
+</body>
+</html>
