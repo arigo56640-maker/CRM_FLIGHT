@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, send_from_directory
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,5 +21,9 @@ def create_app():
 
     from app.scheduler import start_scheduler
     start_scheduler(app)
+
+    @app.route("/")
+    def index():
+        return send_from_directory(app.static_folder, "index.html")
 
     return app
