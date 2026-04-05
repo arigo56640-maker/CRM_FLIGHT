@@ -22,8 +22,4 @@ def create_app():
     from app.scheduler import start_scheduler
     start_scheduler(app)
 
-    @app.route("/")
-    def index():
-        return send_from_directory(app.static_folder, "index.html")
-
     return app
