@@ -5,7 +5,7 @@ const API = {
       headers: { "Content-Type": "application/json" },
     };
     if (body !== undefined) opts.body = JSON.stringify(body);
-    const res = await fetch(path, opts);
+    const res = await fetch((window.BACKEND_URL || '') + path, opts);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || res.statusText);

@@ -1,5 +1,6 @@
 import os
 from flask import Flask, send_from_directory
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,6 +16,9 @@ def create_app():
     env = os.environ.get("FLASK_ENV", "production")
     from app.config import config_map
     app.config.from_object(config_map.get(env, config_map["production"]))
+
+    cors_origin = os.environ.get("CORS_ORIGIN", "*")
+    CORS(app, resources={r"/*": {"origins": cors_origin}})
 
     from app.routes import register_blueprints
     register_blueprints(app)
