@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Running the backend
 
 ```bash
-cd backend
 pip install -r requirements.txt
+cd backend
 cp .env.example .env   # then fill in SUPABASE_URL and SUPABASE_KEY
 python run.py
 ```
